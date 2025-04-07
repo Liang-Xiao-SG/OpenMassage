@@ -1,49 +1,89 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
-import { Card, Title, TextInput, Button } from 'react-native-paper';
-import { BookingFormData } from './ProviderList'; // Import the form data type
+import { View, Platform, StyleSheet, TouchableOpacity } from 'react-native';
+import { Card, Title, TextInput, Button, Text } from 'react-native-paper';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { BookingFormData } from './ProviderList';
 
-// Define props for the component
 interface BookingRequestFormProps {
   onSubmit: (formData: BookingFormData) => void;
-  onCancel: () => void; // Add onCancel prop
+  onCancel: () => void;
 }
 
 const BookingRequestForm: React.FC<BookingRequestFormProps> = ({ onSubmit, onCancel }) => {
-  // State aligned with BookingFormData (expecting ISO string for date/time)
-  const [dateTimeString, setDateTimeString] = useState('');
+  const [booking_date, setDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
   const [specialRequests, setSpecialRequests] = useState('');
 
-  const handleSubmit = () => {
-    // Basic validation (can be improved)
-    if (!dateTimeString || !specialRequests) {
-        alert('Please fill in all fields.');
-        return;
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowPicker(Platform.OS === 'ios');
+    if (event.type === 'dismissed') {
+      setShowPicker(false);
+      return;
     }
-    // Construct data matching BookingFormData
+    if (selectedDate) {
+      setDate(selectedDate);
+      if (Platform.OS === 'android') {
+        setShowPicker(false);
+      }
+    }
+  };
+
+  const handleWebDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = new Date(e.target.value);
+    if (!isNaN(newDate.getTime())) {
+      setDate(newDate);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!booking_date || !specialRequests) {
+      alert('Please select a date/time and fill in special requests.');
+      return;
+    }
     const formData: BookingFormData = {
-        date: dateTimeString, // Pass the ISO string directly
-        special_requests: specialRequests
+      booking_date: booking_date.toISOString(), // Changed key to booking_date
+      special_requests: specialRequests,
     };
-    console.log('Submitting Booking Request:', formData);
     onSubmit(formData);
-    // Optionally clear fields after submission, or rely on parent to hide form
-    // setDateTimeString('');
-    // setSpecialRequests('');
+  };
+
+  const formatDate = (dateToFormat: Date) => {
+    return `${dateToFormat.getFullYear()}-${String(dateToFormat.getMonth() + 1).padStart(2, '0')}-${String(dateToFormat.getDate()).padStart(2, '0')} ${String(dateToFormat.getHours()).padStart(2, '0')}:${String(dateToFormat.getMinutes()).padStart(2, '0')}`;
   };
 
   return (
-    // Wrap form in a Card for better UI structure
-    <Card style={{ marginTop: 16, marginBottom: 16, padding: 16 }}>
+    <Card style={styles.card}>
       <Title>Request a Booking</Title>
-      <TextInput
-        label="Date & Time (YYYY-MM-DDTHH:mm:ss)" // Guide user on format
-        placeholder="e.g., 2025-12-31T14:30:00"
-        value={dateTimeString}
-        onChangeText={setDateTimeString}
-        mode="outlined"
-        style={{ marginBottom: 12 }}
-      />
+
+      <Text style={styles.label}>Select Date & Time</Text>
+
+      {Platform.OS === 'web' ? (
+        <input
+          type="datetime-local"
+          onChange={handleWebDateChange}
+          value={booking_date.toISOString().slice(0, 16)}
+          className="web-date-input"
+          title="Select date and time"
+          placeholder="YYYY-MM-DDTHH:MM"
+        />
+      ) : (
+        <>
+          <TouchableOpacity onPress={() => setShowPicker(true)} style={styles.dateDisplay}>
+            <Text>{formatDate(booking_date)}</Text>
+          </TouchableOpacity>
+          {showPicker && (
+            <DateTimePicker
+              testID="dateTimePicker"
+              value={booking_date}
+              mode="datetime"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleDateChange}
+              minimumDate={new Date()}
+            />
+          )}
+        </>
+      )}
+
       <TextInput
         label="Special Requests"
         placeholder="Any specific needs or preferences?"
@@ -52,18 +92,60 @@ const BookingRequestForm: React.FC<BookingRequestFormProps> = ({ onSubmit, onCan
         mode="outlined"
         multiline
         numberOfLines={3}
-        style={{ marginBottom: 16 }}
+        style={styles.textInput}
       />
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-         <Button onPress={onCancel} mode="outlined" style={{ marginRight: 8 }}>
-            Cancel
-         </Button>
-         <Button onPress={handleSubmit} mode="contained">
-            Submit Request
-         </Button>
+
+      <View style={styles.buttonContainer}>
+        <Button onPress={onCancel} mode="outlined" style={styles.cancelButton}>
+          Cancel
+        </Button>
+        <Button onPress={handleSubmit} mode="contained">
+          Submit Request
+        </Button>
       </View>
     </Card>
   );
 };
+
+const styles = StyleSheet.create({
+  card: {
+    marginTop: 16,
+    marginBottom: 16,
+    padding: 16,
+  },
+  label: {
+    marginBottom: 4,
+    color: 'grey',
+    fontSize: 12,
+  },
+  dateDisplay: {
+    height: 50,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: 'grey',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  webDateInput: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: 'grey',
+    borderRadius: 4,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    fontSize: 16,
+  },
+  textInput: {
+    marginBottom: 16,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  cancelButton: {
+    marginRight: 8,
+  },
+});
 
 export default BookingRequestForm;

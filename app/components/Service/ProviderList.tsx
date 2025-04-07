@@ -20,7 +20,7 @@ type ServiceWithProvider = Service & {
 
 // Define the structure of data coming from the form
 export interface BookingFormData { // Add export keyword
-    date: string; // Or Date object, depending on form implementation
+    booking_date: string; // Or Date object, depending on form implementation
     // time: string; // Removed as per schema (DateTime)
     special_requests: string;
 }
@@ -33,17 +33,19 @@ const ProviderList: React.FC = () => {
   const [isFormVisible, setFormVisible] = useState<boolean>(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null); // Changed from providerId to serviceId
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]); // Keep this for now, might need adjustment based on BookingRequests component props
+  // TODO: Replace with actual user role from auth context/state
+  const userRole: 'client' | 'practitioner' = 'client'; // Define at component level
 
   const handleBookingRequest = async (request: BookingFormData, serviceId: string) => { // Changed providerId to serviceId
     // TODO: Replace 'client-id-placeholder' with actual authenticated user ID
-    const clientId = 'client-id-placeholder';
+    const clientId = 'client-id-placeholder'; // Replace with actual client ID from auth context/state
 
     const { data, error } = await supabase
       .from('bookings')
       .insert([{
         service_id: serviceId, // Use the correct service ID
         client_id: clientId,
-        date: request.date, // Ensure this is in a format Supabase accepts (e.g., ISO string)
+        booking_date: request.booking_date, // Map form's booking_date to DB's date column
         special_requests: request.special_requests,
         status: 'pending' // Use the enum type directly if needed, but Supabase infers it
       }])
@@ -87,31 +89,82 @@ const ProviderList: React.FC = () => {
     }
   };
 
-  const fetchBookingRequests = async () => {
-    // Assuming we fetch requests relevant to the current provider/client
-    // For now, let's fetch all pending requests for demonstration
-    // Replace 'client-id' or add provider logic as needed
-    // TODO: Add filtering based on user role (client sees their requests, provider sees requests for their services)
-    // const userId = 'user-id-placeholder'; // Get current user ID
-    // const userRole = 'client'; // Get current user role
-    // let query = supabase.from('bookings').select('*');
-    // if (userRole === 'client') {
-    //   query = query.eq('client_id', userId);
-    // } else if (userRole === 'practitioner') {
-    //   // Need to fetch services offered by practitioner first, then filter bookings by those service_ids
-    //   // This might require a more complex query or multiple queries.
-    //   // query = query.in('service_id', providerServiceIds);
-    // }
+  // TODO: Ensure 'cancelled' is added to the 'booking_status' enum in the Supabase database schema.
+  const handleCancel = async (id: string) => {
+    console.log(`Client cancelling booking request ${id}`);
 
-    const { data, error } = await supabase
+    // Update status to 'cancelled' in Supabase
+    const { error } = await supabase
+      .from('bookings')
+      .update({ status: 'cancelled' }) // Use the new status
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error cancelling booking:', error);
+      // TODO: Show user feedback
+    } else {
+      // Update local state immediately (or rely on realtime)
+      setBookingRequests(prevRequests =>
+        prevRequests.map(req =>
+          req.id === id ? { ...req, status: 'cancelled' } : req
+        )
+      );
+      console.log(`Booking request (ID: ${id}) cancelled.`);
+    }
+  };
+
+  const fetchBookingRequests = async () => {
+    // TODO: Replace with actual user ID and role from auth context/state
+    const userId = '6ffe9a28-3f5c-4ca7-9d5f-274f898bffcc'; // Replace with actual user ID
+    // Use the component-level userRole defined above (line 37)
+
+    let query = supabase
       .from('bookings')
       .select<string, Booking>('*') // Use generated Booking type
       .order('created_at', { ascending: false });
+
+    if (userRole === 'client') {
+      query = query.eq('client_id', userId);
+    } else if (userRole === 'practitioner') {
+      // Fetch service IDs owned by the practitioner
+      const { data: practitionerServices, error: serviceError } = await supabase
+        .from('services')
+        .select('id')
+        .eq('user_id', userId);
+
+      if (serviceError) {
+        console.error('Error fetching practitioner services:', serviceError);
+        setBookingRequests([]);
+        return; // Exit if services can't be fetched
+      }
+
+      const serviceIds = practitionerServices?.map(s => s.id) || [];
+
+      if (serviceIds.length > 0) {
+        query = query.in('service_id', serviceIds);
+      } else {
+        // If practitioner has no services, they have no bookings to see
+        setBookingRequests([]);
+        return;
+      }
+    } else {
+        // Handle cases where role is unknown or not set
+        console.warn("User role not determined, cannot fetch specific bookings.");
+        setBookingRequests([]);
+        return;
+    }
+
+    // Execute the constructed query
+    const { data, error } = await query;
+
+    console.log('[fetchBookingRequests] Raw data from Supabase:', data); // Log raw data
+    console.log('[fetchBookingRequests] Error from Supabase:', error); // Log error explicitly
 
     if (error) {
       console.error('Error fetching booking requests:', error);
       setBookingRequests([]); // Set to empty array on error
     } else {
+      console.log(`[fetchBookingRequests] Successfully fetched ${data?.length ?? 0} raw bookings.`); // Log count
       // Transform Supabase data to match the BookingRequest prop type if necessary
       interface FormattedBookingRequest extends BookingRequest {
           time: string; // Add 'time' field to extend BookingRequest
@@ -122,13 +175,14 @@ const ProviderList: React.FC = () => {
         const bookingDateTime = new Date(req.booking_date); // Create Date object once
         return {
           id: req.id,
-          date: bookingDateTime.toLocaleDateString(), // Extract date part
+          booking_date: bookingDateTime.toLocaleDateString(), // Extract date part
           time: bookingDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), // Extract time part
           special_requests: req.special_requests ?? '', // Handle null
           status: req.status,
         };
       });
       setBookingRequests(formattedRequests);
+      console.log(`[fetchBookingRequests] Set ${formattedRequests.length} formatted requests to state.`); // Log formatted count
     }
   };
 
@@ -234,7 +288,13 @@ const ProviderList: React.FC = () => {
       {/* Display existing booking requests */}
       {bookingRequests.length > 0 && (
         <View style={{ marginTop: 24 }}>
-           <BookingRequests requests={bookingRequests} onRespond={handleRespond} />
+           {/* TODO: Replace 'client' with actual userRole from auth state */}
+           <BookingRequests
+             requests={bookingRequests}
+             userRole={userRole} // Pass the component-level user role
+             onRespond={handleRespond}
+             onCancel={handleCancel} // Pass the cancel handler
+           />
         </View>
       )}
     </View>
