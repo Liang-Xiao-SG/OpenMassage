@@ -40,7 +40,7 @@ Create a mobile-first app tailored for massage practitioners and freelancers in 
   - id: UUID (Primary Key)
   - service_id: UUID (Foreign Key to Services)
   - client_id: UUID (Foreign Key to Users)
-  - date: DateTime
+  - booking_date: DateTime
   - status: Enum ('pending', 'accepted', 'declined')
   - special_requests: String
 
