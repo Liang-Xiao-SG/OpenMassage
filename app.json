@@ -5,6 +5,10 @@
       "expo-router"
     ],
     "name": "OpenMassage",
-    "slug": "OpenMassage"
+    "slug": "OpenMassage",
+    "extra": {
+      "REACT_APP_SUPABASE_URL": "https://hqjfrncncnhajodxggbi.supabase.co",
+      "REACT_APP_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhxamZybmNuY25oYWpvZHhnZ2JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4NDMzODYsImV4cCI6MjA1OTQxOTM4Nn0.H-9kLWjueSWYahc4T1Vyzp--FKqIc0euKS47d9HKkgU"
+    }
   }
 }
