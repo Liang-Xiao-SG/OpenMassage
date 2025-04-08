@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native'; // Added ActivityIndicator
+import { View, ActivityIndicator, Alert } from 'react-native'; // Added ActivityIndicator, Alert
 import { Card, Text, Button, Title, Paragraph } from 'react-native-paper';
 // import mockProviders from '../../utils/mockProviders'; // Remove mock data
 import supabase from '../../../utils/supabaseClient';
@@ -27,28 +27,39 @@ export interface BookingFormData { // Add export keyword
 
 // Remove SupabaseBooking interface, use generated Booking type
 
-const ProviderList: React.FC = () => {
+// Define props for the component
+interface ProviderListProps {
+  onBookingMade?: () => void; // Renamed prop
+}
+
+const ProviderList: React.FC<ProviderListProps> = ({ onBookingMade }) => { // Destructure renamed prop
   const [services, setServices] = useState<ServiceWithProvider[]>([]); // State for fetched services
   const [isLoadingServices, setIsLoadingServices] = useState<boolean>(true); // Loading state for services
   const [isFormVisible, setFormVisible] = useState<boolean>(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null); // Changed from providerId to serviceId
-  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]); // Keep this for now, might need adjustment based on BookingRequests component props
-  // TODO: Replace with actual user role from auth context/state
-  const userRole: 'client' | 'practitioner' = 'client'; // Define at component level
+  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]);
+  const [clientId, setClientId] = useState<string | null>(null); // State for the logged-in user's ID
+  // TODO: Replace with actual user role from auth context/state or fetched profile
+  const userRole: 'client' | 'practitioner' = 'client'; // Keep placeholder for now
 
-  const handleBookingRequest = async (request: BookingFormData, serviceId: string) => { // Changed providerId to serviceId
-    // TODO: Replace 'client-id-placeholder' with actual authenticated user ID
-    const clientId = 'client-id-placeholder'; // Replace with actual client ID from auth context/state
+  const handleBookingRequest = async (request: BookingFormData, serviceId: string) => {
+    if (!clientId) {
+      Alert.alert("Error", "You must be logged in to make a booking request.");
+      return;
+    }
+    const bookingDataToInsert = {
+      service_id: serviceId,
+      client_id: clientId,
+      booking_date: request.booking_date,
+      special_requests: request.special_requests,
+      status: 'pending' as const // Ensure type is 'pending'
+    };
+
+    console.log("ProviderList: Attempting to insert booking:", JSON.stringify(bookingDataToInsert, null, 2)); // Log data before insert
 
     const { data, error } = await supabase
       .from('bookings')
-      .insert([{
-        service_id: serviceId, // Use the correct service ID
-        client_id: clientId,
-        booking_date: request.booking_date, // Map form's booking_date to DB's date column
-        special_requests: request.special_requests,
-        status: 'pending' // Use the enum type directly if needed, but Supabase infers it
-      }])
+      .insert([bookingDataToInsert])
       .select() // Select the inserted row to potentially use it
       .single(); // Expecting a single row back
       
@@ -57,10 +68,13 @@ const ProviderList: React.FC = () => {
       // TODO: Show user feedback
     } else {
       console.log('Booking request stored:', data);
-      // Optional: Add to local state immediately, but realtime should handle it.
-      // If adding locally, ensure 'data' matches the 'BookingRequest' interface structure.
-      // const newRequest: BookingRequest = { ...data, time: new Date(data.date).toLocaleTimeString() }; // Example transformation
-      // setBookingRequests(prev => [...prev, newRequest]);
+      // Call the callback function passed from HomeScreen to trigger refresh
+      if (onBookingMade) { // Check renamed prop
+        console.log("ProviderList: Calling onBookingMade callback."); // Update log
+        onBookingMade(); // Call renamed prop
+      }
+      // Realtime should also update the list, but calling the callback ensures
+      // the "Next Appointment" section in HomeScreen refreshes immediately.
     }
     setFormVisible(false); // Close the form after submission
   };
@@ -113,24 +127,28 @@ const ProviderList: React.FC = () => {
     }
   };
 
-  const fetchBookingRequests = async () => {
-    // TODO: Replace with actual user ID and role from auth context/state
-    const userId = '6ffe9a28-3f5c-4ca7-9d5f-274f898bffcc'; // Replace with actual user ID
-    // Use the component-level userRole defined above (line 37)
+  const fetchBookingRequests = async (currentUserId: string | null) => { // Accept userId as parameter
+    if (!currentUserId) {
+      console.log("No user ID available, skipping booking fetch.");
+      setBookingRequests([]);
+      return;
+    }
+    // Use the component-level userRole defined above (needs dynamic update later)
 
     let query = supabase
       .from('bookings')
       .select<string, Booking>('*') // Use generated Booking type
-      .order('created_at', { ascending: false });
+      .order('updated_at', { ascending: false })
+      .limit(3); // Limit the query to fetch only 3 records
 
     if (userRole === 'client') {
-      query = query.eq('client_id', userId);
+      query = query.eq('client_id', currentUserId); // Use the passed userId
     } else if (userRole === 'practitioner') {
       // Fetch service IDs owned by the practitioner
       const { data: practitionerServices, error: serviceError } = await supabase
         .from('services')
         .select('id')
-        .eq('user_id', userId);
+        .eq('user_id', currentUserId); // Use the passed userId
 
       if (serviceError) {
         console.error('Error fetching practitioner services:', serviceError);
@@ -186,8 +204,28 @@ const ProviderList: React.FC = () => {
     }
   };
 
-  // Fetch services and booking requests, set up realtime
+  // Fetch user ID, services, booking requests, set up realtime
   useEffect(() => {
+    // Fetch current user session
+    const fetchCurrentUser = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("Error fetching session:", error);
+        Alert.alert("Authentication Error", "Could not retrieve user session.");
+      } else if (session?.user) {
+        console.log("User session found, ID:", session.user.id);
+        setClientId(session.user.id);
+        // Fetch bookings only after getting the client ID
+        fetchBookingRequests(session.user.id);
+      } else {
+        console.log("No active user session found.");
+        // Handle case where user is not logged in - maybe show login prompt or disable booking
+        setBookingRequests([]); // Ensure bookings are cleared if user logs out
+      }
+    };
+
+    fetchCurrentUser();
+
     const fetchServices = async () => {
       setIsLoadingServices(true);
       const { data, error } = await supabase
@@ -210,7 +248,7 @@ const ProviderList: React.FC = () => {
     };
 
     fetchServices();
-    fetchBookingRequests(); // Fetch initial booking requests
+    // fetchBookingRequests(); // Moved inside fetchCurrentUser to ensure clientId is available
 
     // Set up Supabase Realtime subscription for bookings
     const bookingsChannel = supabase.channel('public:bookings')
@@ -220,8 +258,8 @@ const ProviderList: React.FC = () => {
         (payload) => {
           console.log('Bookings change received!', payload);
           // Re-fetch data or update state smartly based on payload
-          // For simplicity, re-fetching:
-          fetchBookingRequests();
+          // For simplicity, re-fetching using the stored clientId:
+          fetchBookingRequests(clientId); // Pass the stored clientId
         }
       )
       .subscribe();

@@ -44,10 +44,13 @@ const SignUpForm = () => {
         });
 
       if (insertError) {
-        // TODO: Consider how to handle this - maybe delete the auth user?
-        // For now, alert the user about the profile creation issue.
-        Alert.alert('Profile Creation Error', `Account created, but failed to save profile details: ${insertError.message}`);
+        console.error("!!! Critical Error: Failed to insert user profile into public.users after auth signup. User ID:", authData.user.id, "Error:", insertError);
+        // TODO: Consider a more robust handling strategy, like queuing the profile creation or deleting the auth user.
+        // Deleting the auth user requires admin privileges and is usually done server-side.
+        // await supabase.auth.admin.deleteUser(authData.user.id);
+        Alert.alert('Profile Creation Error', `Your account was created for login, but saving your profile failed. Please contact support. Error: ${insertError.message}`);
       } else {
+        console.log("Successfully inserted user profile into public.users for ID:", authData.user.id);
         Alert.alert('Sign Up Successful', 'Please check your email to confirm your account.');
         // TODO: Add navigation logic after successful sign up / confirmation
       }

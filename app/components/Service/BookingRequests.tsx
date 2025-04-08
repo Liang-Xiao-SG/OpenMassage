@@ -25,7 +25,7 @@ const BookingRequests: React.FC<BookingRequestsProps> = ({ requests, userRole, o
   return (
     <View>
       <Text variant="headlineMedium" style={{ marginBottom: 16 }}>Booking Requests</Text>
-      {requests.map(request => (
+      {requests.map(request => ( // Removed slice, as data is already limited by the fetch in ProviderList
         <Card key={request.id} style={{ marginBottom: 16 }}>
           <Card.Content>
             <Paragraph>Date: {request.booking_date}</Paragraph>
