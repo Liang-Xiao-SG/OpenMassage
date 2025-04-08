@@ -137,7 +137,13 @@ const ProviderList: React.FC<ProviderListProps> = ({ onBookingMade }) => { // De
 
     let query = supabase
       .from('bookings')
-      .select<string, Booking>('*') // Use generated Booking type
+      .select(`
+        *,
+        services (
+          title,
+          users ( name )
+        )
+      `) // Fetch booking details, service title, and practitioner name
       .order('updated_at', { ascending: false })
       .limit(3); // Limit the query to fetch only 3 records
 
@@ -188,8 +194,16 @@ const ProviderList: React.FC<ProviderListProps> = ({ onBookingMade }) => { // De
           time: string; // Add 'time' field to extend BookingRequest
       }
 
+      // Define a type for the fetched data including nested relations
+      type BookingWithDetailsServiceAndUser = Booking & {
+        services: {
+          title: string | null;
+          users: { name: string | null } | null;
+        } | null;
+      };
+
       // Transform Supabase data to match the BookingRequest prop type
-      const formattedRequests: BookingRequest[] = (data || []).map((req: Booking): BookingRequest => {
+      const formattedRequests: BookingRequest[] = (data as BookingWithDetailsServiceAndUser[] || []).map((req): BookingRequest => {
         const bookingDateTime = new Date(req.booking_date); // Create Date object once
         return {
           id: req.id,
@@ -197,6 +211,9 @@ const ProviderList: React.FC<ProviderListProps> = ({ onBookingMade }) => { // De
           time: bookingDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), // Extract time part
           special_requests: req.special_requests ?? '', // Handle null
           status: req.status,
+          // Add service title and practitioner name
+          serviceTitle: req.services?.title ?? 'Unknown Service',
+          practitionerName: req.services?.users?.name ?? 'Unknown Practitioner',
         };
       });
       setBookingRequests(formattedRequests);
