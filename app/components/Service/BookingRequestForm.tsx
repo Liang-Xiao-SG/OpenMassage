@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Platform, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Platform, StyleSheet } from 'react-native';
 import { Card, Title, TextInput, Button, Text } from 'react-native-paper';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DatePicker from 'react-native-ui-datepicker';
+import dayjs from 'dayjs'; // Datepicker uses dayjs
 import { BookingFormData } from './ProviderList';
 
 interface BookingRequestFormProps {
@@ -10,30 +11,10 @@ interface BookingRequestFormProps {
 }
 
 const BookingRequestForm: React.FC<BookingRequestFormProps> = ({ onSubmit, onCancel }) => {
-  const [booking_date, setDate] = useState(new Date());
-  const [showPicker, setShowPicker] = useState(false);
+  const [booking_date, setDate] = useState(dayjs()); // Use dayjs for the date state
   const [specialRequests, setSpecialRequests] = useState('');
 
-  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowPicker(Platform.OS === 'ios');
-    if (event.type === 'dismissed') {
-      setShowPicker(false);
-      return;
-    }
-    if (selectedDate) {
-      setDate(selectedDate);
-      if (Platform.OS === 'android') {
-        setShowPicker(false);
-      }
-    }
-  };
-
-  const handleWebDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = new Date(e.target.value);
-    if (!isNaN(newDate.getTime())) {
-      setDate(newDate);
-    }
-  };
+  // Remove old date handlers handleDateChange and handleWebDateChange
 
   const handleSubmit = () => {
     if (!booking_date || !specialRequests) {
@@ -41,15 +22,13 @@ const BookingRequestForm: React.FC<BookingRequestFormProps> = ({ onSubmit, onCan
       return;
     }
     const formData: BookingFormData = {
-      booking_date: booking_date.toISOString(), // Changed key to booking_date
+      booking_date: booking_date.toISOString(),
       special_requests: specialRequests,
     };
     onSubmit(formData);
   };
 
-  const formatDate = (dateToFormat: Date) => {
-    return `${dateToFormat.getFullYear()}-${String(dateToFormat.getMonth() + 1).padStart(2, '0')}-${String(dateToFormat.getDate()).padStart(2, '0')} ${String(dateToFormat.getHours()).padStart(2, '0')}:${String(dateToFormat.getMinutes()).padStart(2, '0')}`;
-  };
+  // Remove unused formatDate function
 
   return (
     <Card style={styles.card}>
@@ -57,25 +36,12 @@ const BookingRequestForm: React.FC<BookingRequestFormProps> = ({ onSubmit, onCan
 
       <Text style={styles.label}>Select Date & Time</Text>
 
-      {Platform.OS === 'web' ? (
-        <input
-          type="datetime-local"
-          onChange={handleWebDateChange}
-          value={booking_date.toISOString().slice(0, 16)}
-          className="web-date-input"
-          title="Select date and time"
-          placeholder="YYYY-MM-DDTHH:MM"
-        />
-      ) : (
-         <TextInput
-           label="Date & Time (YYYY-MM-DD HH:MM)"
-           value={formatDate(booking_date)}
-           // onChangeText={(text) => { /* Basic text handling if needed, but complex date parsing omitted */ }}
-           editable={false} // Make it non-editable for now, user needs native picker
-           placeholder="Requires native date picker setup"
-           style={styles.textInput} // Reuse existing style
-         />
-      )}
+      <DatePicker
+        mode="datetime" // Use datetime mode
+        value={booking_date}
+        onValueChange={date => setDate(dayjs(date))} // Update state using dayjs
+        style={styles.datePicker}
+      />
 
       <TextInput
         label="Special Requests"
@@ -111,23 +77,9 @@ const styles = StyleSheet.create({
     color: 'grey',
     fontSize: 12,
   },
-  dateDisplay: {
-    height: 50,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: 'grey',
-    borderRadius: 4,
-    marginBottom: 12,
-  },
-  webDateInput: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: 'grey',
-    borderRadius: 4,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-    fontSize: 16,
+  // Remove unused styles dateDisplay and webDateInput
+  datePicker: { // Add style for the new date picker if needed
+    marginBottom: 16,
   },
   textInput: {
     marginBottom: 16,
