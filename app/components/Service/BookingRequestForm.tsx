@@ -67,21 +67,14 @@ const BookingRequestForm: React.FC<BookingRequestFormProps> = ({ onSubmit, onCan
           placeholder="YYYY-MM-DDTHH:MM"
         />
       ) : (
-        <>
-          <TouchableOpacity onPress={() => setShowPicker(true)} style={styles.dateDisplay}>
-            <Text>{formatDate(booking_date)}</Text>
-          </TouchableOpacity>
-          {showPicker && (
-            <DateTimePicker
-              testID="dateTimePicker"
-              value={booking_date}
-              mode="datetime"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleDateChange}
-              minimumDate={new Date()}
-            />
-          )}
-        </>
+         <TextInput
+           label="Date & Time (YYYY-MM-DD HH:MM)"
+           value={formatDate(booking_date)}
+           // onChangeText={(text) => { /* Basic text handling if needed, but complex date parsing omitted */ }}
+           editable={false} // Make it non-editable for now, user needs native picker
+           placeholder="Requires native date picker setup"
+           style={styles.textInput} // Reuse existing style
+         />
       )}
 
       <TextInput

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Button, Text, Card, Title, Paragraph, Provider as PaperProvider } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -363,7 +363,3 @@ const styles = StyleSheet.create({
 });
 
 export default PractitionerHomeScreen;
-
-function useRef(arg0: boolean) {
-    throw new Error('Function not implemented.');
-}

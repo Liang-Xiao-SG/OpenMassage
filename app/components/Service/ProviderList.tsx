@@ -35,7 +35,6 @@ interface ProviderListProps {
 const ProviderList: React.FC<ProviderListProps> = ({ onBookingMade }) => { // Destructure renamed prop
   const [services, setServices] = useState<ServiceWithProvider[]>([]); // State for fetched services
   const [isLoadingServices, setIsLoadingServices] = useState<boolean>(true); // Loading state for services
-  const [isFormVisible, setFormVisible] = useState<boolean>(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null); // Changed from providerId to serviceId
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]);
   const [clientId, setClientId] = useState<string | null>(null); // State for the logged-in user's ID
@@ -76,7 +75,7 @@ const ProviderList: React.FC<ProviderListProps> = ({ onBookingMade }) => { // De
       // Realtime should also update the list, but calling the callback ensures
       // the "Next Appointment" section in HomeScreen refreshes immediately.
     }
-    setFormVisible(false); // Close the form after submission
+    setSelectedServiceId(null); // Clear selected service ID after submission
   };
 
   const handleRespond = async (id: string, status: BookingStatus) => { // Use generated Enum type
@@ -294,51 +293,53 @@ const ProviderList: React.FC<ProviderListProps> = ({ onBookingMade }) => { // De
 
   return (
     <View style={{ flex: 1, padding: 16 }}>
-      <Title style={{ marginBottom: 16 }}>Available Services</Title>
+      <Title style={{ marginBottom: 16, fontSize: 22, fontWeight: 'bold' }}>Available Services</Title>
       {isLoadingServices ? (
         <ActivityIndicator animating={true} size="large" style={{ marginTop: 20 }} />
       ) : (
         <View style={{ marginBottom: 20 }}>
-          {services.length === 0 && <Text>No services available currently.</Text>}
+          {services.length === 0 && <Text style={{ fontSize: 16 }}>No services available currently.</Text>}
           {services.map((service) => (
             <Card key={service.id} style={{ marginBottom: 16 }}>
               <Card.Content>
-                <Title>{service.title}</Title>
+                <Title style={{ fontSize: 18, marginBottom: 4 }}>{service.title}</Title>
                 {/* Display provider name if available */}
-                {service.users?.name && <Paragraph>Provider: {service.users.name}</Paragraph>}
-                {service.description && <Paragraph>{service.description}</Paragraph>}
+                {service.users?.name && <Paragraph style={{ fontSize: 15 }}>Provider: {service.users.name}</Paragraph>}
+                {service.description && <Paragraph style={{ fontSize: 15 }}>{service.description}</Paragraph>}
                 {service.specialties && service.specialties.length > 0 && (
-                  <Paragraph>Specialties: {service.specialties.join(', ')}</Paragraph>
+                  <Paragraph style={{ fontSize: 15 }}>Specialties: {service.specialties.join(', ')}</Paragraph>
                 )}
-                 {service.price && <Paragraph>Price: ${service.price.toFixed(2)}</Paragraph>}
+                 {service.price && <Paragraph style={{ fontSize: 15 }}>Price: ${service.price.toFixed(2)}</Paragraph>}
                 {/* Add Rating later if implemented */}
               </Card.Content>
               <Card.Actions>
                 <Button
                   mode="contained"
+                  labelStyle={{ fontSize: 15 }} // Make button text larger
                   onPress={() => {
-                    setSelectedServiceId(service.id); // Use service ID
-                    setFormVisible(true);
+                    // Toggle behavior: If this service's form is already open, close it. Otherwise, open it.
+                    setSelectedServiceId(prevId => prevId === service.id ? null : service.id);
                   }}
                 >
                   Request Booking
                 </Button>
               </Card.Actions>
+              {/* Conditionally render BookingRequestForm inline */}
+              {selectedServiceId === service.id && (
+                <View style={{ marginTop: 8, marginBottom: 8 }}> {/* Add some spacing */}
+                  <BookingRequestForm
+                    onSubmit={(formData: BookingFormData) => handleBookingRequest(formData, selectedServiceId)}
+                    onCancel={() => {
+                        setSelectedServiceId(null); // Clear selected service ID
+                    }}
+                  />
+                </View>
+              )}
             </Card>
           ))}
         </View>
       )}
-      {/* Conditionally render BookingRequestForm */}
-      {/* Conditionally render BookingRequestForm */}
-      {isFormVisible && selectedServiceId && (
-        <BookingRequestForm
-          onSubmit={(formData: BookingFormData) => handleBookingRequest(formData, selectedServiceId)}
-          onCancel={() => {
-              setFormVisible(false);
-              setSelectedServiceId(null); // Clear selected service ID
-          }}
-        />
-      )}
+      {/* BookingRequestForm is now rendered inline with each service card above */}
 
       {/* Display existing booking requests */}
       {bookingRequests.length > 0 && (
