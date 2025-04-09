@@ -45,13 +45,57 @@ const HomeScreen: React.FC = () => {
       router.replace('/'); // Navigate back to the root/welcome screen
     }
   };
+// Ensured renderLastBooking function is removed
 
-  // Ensured renderLastBooking function is removed
+const handleDeleteAccount = async () => {
+  Alert.alert(
+    "Delete Account",
+    "Are you sure you want to delete your account? This action cannot be undone.",
+    [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          // Alert.alert("Account Deletion", "Account deletion functionality not yet implemented."); // Remove placeholder
+          // Implement Supabase function call for deletion
+          try {
+            // Ensure the user is authenticated before calling the function
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+               Alert.alert("Error", "You must be logged in to delete your account.");
+               return;
+            }
 
-  return (
-    <View style={styles.container}>
+            console.log("Invoking delete-user function...");
+            const { error } = await supabase.functions.invoke('delete-user'); // Call the function
+            if (error) throw error; // Throw if function invocation fails
+
+            Alert.alert("Success", "Your account has been successfully deleted.");
+            await supabase.auth.signOut(); // Sign out the user locally
+            router.replace('/'); // Navigate back to the root/login screen
+          } catch (error: any) {
+            console.error("Account Deletion Error:", error);
+            Alert.alert("Deletion Error", error.message || "An unexpected error occurred while deleting your account.");
+          }
+        },
+      },
+    ]
+  );
+};
+
+return (
+  <View style={styles.container}>
       <View style={styles.header}>
-        <View style={{ flex: 1 }} /> {/* Spacer to push button right */}
+        <View style={{ flex: 1 }} /> {/* Spacer to push buttons right */}
+        <Button
+          mode="outlined"
+          onPress={handleDeleteAccount}
+          style={styles.deleteButton} // Add specific style if needed, or reuse logoutButton style
+          textColor="red" // Make it visually distinct
+        >
+          Delete Account
+        </Button>
         <Button
           mode="outlined"
           onPress={handleLogout}
@@ -80,7 +124,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logoutButton: {
-    // No margin needed here if header handles spacing
+    marginLeft: 8, // Add some space between buttons
+  },
+  deleteButton: {
+    // Add specific styling if needed, e.g., marginRight: 8npx 
+    // Using marginLeft on logoutButton achieves spacing for now
   },
   // Optional title styling
   // title: {
