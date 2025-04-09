@@ -58,7 +58,7 @@ const handleDeleteAccount = async () => {
         style: "destructive",
         onPress: async () => {
           // Alert.alert("Account Deletion", "Account deletion functionality not yet implemented."); // Remove placeholder
-          // Implement Supabase function call for deletion
+          // Deletion logic moved inside the try block below
           try {
             // Ensure the user is authenticated before calling the function
             const { data: { session } } = await supabase.auth.getSession();
@@ -67,9 +67,16 @@ const handleDeleteAccount = async () => {
                return;
             }
 
-            console.log("Invoking delete-user function...");
-            const { error } = await supabase.functions.invoke('delete-user'); // Call the function
-            if (error) throw error; // Throw if function invocation fails
+            console.log("Invoking delete-user function for user:", session.user.id);
+            // Call the Supabase Edge Function to delete the user, passing the userId
+            const { error: functionError } = await supabase.functions.invoke('delete-user', {
+              body: { userId: session.user.id }
+            });
+
+            if (functionError) {
+              // Throw error to be caught by the outer catch block
+              throw functionError;
+            }
 
             Alert.alert("Success", "Your account has been successfully deleted.");
             await supabase.auth.signOut(); // Sign out the user locally
